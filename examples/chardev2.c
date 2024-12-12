@@ -12,6 +12,7 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 #include <linux/uaccess.h> /* for get_user and put_user */
+#include <linux/version.h>
 
 #include <asm/errno.h>
 
@@ -21,8 +22,8 @@
 #define BUF_LEN 80
 
 enum {
-    CDEV_NOT_USED = 0,
-    CDEV_EXCLUSIVE_OPEN = 1,
+    CDEV_NOT_USED,
+    CDEV_EXCLUSIVE_OPEN,
 };
 
 /* Is the device open right now? Used to prevent concurrent access into
@@ -195,7 +196,7 @@ static struct file_operations fops = {
 /* Initialize the module - Register the character device */
 static int __init chardev2_init(void)
 {
-    /* Register the character device (atleast try) */
+    /* Register the character device (at least try) */
     int ret_val = register_chrdev(MAJOR_NUM, DEVICE_NAME, &fops);
 
     /* Negative values signify an error */
@@ -205,7 +206,11 @@ static int __init chardev2_init(void)
         return ret_val;
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    cls = class_create(DEVICE_FILE_NAME);
+#else
     cls = class_create(THIS_MODULE, DEVICE_FILE_NAME);
+#endif
     device_create(cls, NULL, MKDEV(MAJOR_NUM, 0), NULL, DEVICE_FILE_NAME);
 
     pr_info("Device created on /dev/%s\n", DEVICE_FILE_NAME);

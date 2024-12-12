@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 
 struct devicemodel_data {
     char *greeting;
@@ -22,14 +23,18 @@ static int devicemodel_probe(struct platform_device *dev)
 
     return 0;
 }
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 static int devicemodel_remove(struct platform_device *dev)
+#else
+static void devicemodel_remove(struct platform_device *dev)
+#endif
 {
     pr_info("devicemodel example removed\n");
 
     /* Your device removal code */
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
     return 0;
+#endif
 }
 
 static int devicemodel_suspend(struct device *dev)
@@ -69,7 +74,7 @@ static struct platform_driver devicemodel_driver = {
     .remove = devicemodel_remove,
 };
 
-static int devicemodel_init(void)
+static int __init devicemodel_init(void)
 {
     int ret;
 
@@ -85,7 +90,7 @@ static int devicemodel_init(void)
     return 0;
 }
 
-static void devicemodel_exit(void)
+static void __exit devicemodel_exit(void)
 {
     pr_info("devicemodel exit\n");
     platform_driver_unregister(&devicemodel_driver);
