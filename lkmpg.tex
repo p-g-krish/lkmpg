@@ -80,13 +80,14 @@ Contributing in this way shows your support for free software and the LDP. If yo
 \subsection{Authorship}
 \label{sec:authorship}
 
-The Linux Kernel Module Programming Guide was originally written for the 2.2 kernels by Ori Pomerantz.
-Eventually, Ori no longer had time to maintain the document.
-After all, the Linux kernel is a fast moving target.
-Peter Jay Salzman took over maintenance and updated it for the 2.4 kernels.
-Eventually, Peter no longer had time to follow developments with the 2.6 kernel, so Michael Burian became a co-maintainer to update the document for the 2.6 kernels.
-Bob Mottram updated the examples for 3.8+ kernels.
-Jim Huang upgraded to recent kernel versions (v5.x) and revised the \LaTeX\ document.
+The Linux Kernel Module Programming Guide was initially authored by Ori Pomerantz for Linux v2.2.
+As the Linux kernel evolved, Ori's availability to maintain the document diminished.
+Consequently, Peter Jay Salzman assumed the role of maintainer and updated the guide for Linux v2.4.
+Similar constraints arose for Peter when tracking developments in Linux v2.6,
+leading to Michael Burian joining as a co-maintainer to bring the guide up to speed with Linux v2.6.
+Bob Mottram contributed to the guide by updating examples for Linux v3.8 and later.
+Jim Huang then undertook the task of updating the guide for recent Linux versions (v5.0 and beyond),
+along with revising the LaTeX document.
 
 \subsection{Acknowledgements}
 \label{sec:acknowledgements}
@@ -100,22 +101,24 @@ The following people have contributed corrections or good suggestions:
 \subsection{What Is A Kernel Module?}
 \label{sec:kernelmod}
 
-So, you want to write a kernel module.
-You know C, you have written a few normal programs to run as processes, and now you want to get to where the real action is, to where a single wild pointer can wipe out your file system and a core dump means a reboot.
+Involvement in the development of Linux kernel modules requires a foundation in the C programming language and a track record of creating conventional programs intended for process execution.
+This pursuit delves into a domain where an unregulated pointer, if disregarded,
+may potentially trigger the total elimination of an entire file system,
+resulting in a scenario that necessitates a complete system reboot.
 
-What exactly is a kernel module?
-Modules are pieces of code that can be loaded and unloaded into the kernel upon demand.
-They extend the functionality of the kernel without the need to reboot the system.
-For example, one type of module is the device driver, which allows the kernel to access hardware connected to the system.
-Without modules, we would have to build monolithic kernels and add new functionality directly into the kernel image.
-Besides having larger kernels, this has the disadvantage of requiring us to rebuild and reboot the kernel every time we want new functionality.
+A Linux kernel module is precisely defined as a code segment capable of dynamic loading and unloading within the kernel as needed.
+These modules enhance kernel capabilities without necessitating a system reboot.
+A notable example is seen in the device driver module, which facilitates kernel interaction with hardware components linked to the system.
+In the absence of modules, the prevailing approach leans toward monolithic kernels,
+requiring direct integration of new functionalities into the kernel image.
+This approach leads to larger kernels and necessitates kernel rebuilding and subsequent system rebooting when new functionalities are desired.
 
 \subsection{Kernel module package}
 \label{sec:packages}
 
 Linux distributions provide the commands \sh|modprobe|, \sh|insmod| and \sh|depmod| within a package.
 
-On Ubuntu/Debian:
+On Ubuntu/Debian GNU/Linux:
 \begin{codebash}
 sudo apt-get install build-essential kmod
 \end{codebash}
@@ -130,81 +133,81 @@ sudo pacman -S gcc kmod
 
 To discover what modules are already loaded within your current kernel use the command \sh|lsmod|.
 \begin{codebash}
-sudo lsmod
+lsmod
 \end{codebash}
 
 Modules are stored within the file \verb|/proc/modules|, so you can also see them with:
 \begin{codebash}
-sudo cat /proc/modules
+cat /proc/modules
 \end{codebash}
 
 This can be a long list, and you might prefer to search for something particular.
 To search for the \verb|fat| module:
 \begin{codebash}
-sudo lsmod | grep fat
+lsmod | grep fat
 \end{codebash}
 
-\subsection{Do I need to download and compile the kernel?}
+\subsection{Is there a need to download and compile the kernel?}
 \label{sec:buildkernel}
-For the purposes of following this guide you don't necessarily need to do that.
-However, it would be wise to run the examples within a test distribution running on a virtual machine in order to avoid any possibility of messing up your system.
+To effectively follow this guide, there is no obligatory requirement for performing such actions.
+Nonetheless, a prudent approach involves executing the examples within a test distribution on a virtual machine,
+thus mitigating any potential risk of disrupting the system.
 
 \subsection{Before We Begin}
 \label{sec:preparation}
-Before we delve into code, there are a few issues we need to cover.
-Everyone's system is different and everyone has their own groove.
-Getting your first "hello world" program to compile and load correctly can sometimes be a trick.
-Rest assured, after you get over the initial hurdle of doing it for the first time, it will be smooth sailing thereafter.
+Before delving into code, certain matters require attention.
+Variances exist among individuals' systems, and distinct personal approaches are evident.
+The achievement of successful compilation and loading of the inaugural ``hello world'' program may,
+at times, present challenges.
+It is reassuring to note that overcoming the initial obstacle in the first attempt paves the way for subsequent endeavors to proceed seamlessly.
 
 \begin{enumerate}
   \item Modversioning.
-        A module compiled for one kernel will not load if you boot a different kernel unless you enable \cpp|CONFIG_MODVERSIONS| in the kernel.
-        We will not go into module versioning until later in this guide.
-        Until we cover modversions, the examples in the guide may not work if you are running a kernel with modversioning turned on.
-        However, most stock Linux distribution kernels come with it turned on.
-        If you are having trouble loading the modules because of versioning errors, compile a kernel with modversioning turned off.
+        A module compiled for one kernel will not load if a different kernel is booted,
+        unless \cpp|CONFIG_MODVERSIONS| is enabled in the kernel.
+        Module versioning will be discussed later in this guide.
+        Until module versioning is covered, the examples in this guide may not work correctly if running a kernel with modversioning turned on.
+        However, most stock Linux distribution kernels come with modversioning enabled.
+        If difficulties arise when loading the modules due to versioning errors, consider compiling a kernel with modversioning turned off.
 
   \item Using X Window System.
-  \label{sec:using_x}
-        It is highly recommended that you extract, compile and load all the examples this guide discusses from a console.
-        You should not be working on this stuff in X Window System.
+        It is highly recommended to extract, compile, and load all the examples discussed in this guide from a console.
+        Working on these tasks within the X Window System is discouraged.
 
-        Modules can not print to the screen like \cpp|printf()| can, but they can log information and warnings, which ends up being printed on your screen, but only on a console.
-        If you \sh|insmod| a module from an xterm, the information and warnings will be logged, but only to your systemd journal.
-        You will not see it unless you look through your \sh|journalctl| .
-        See \ref{sec:helloworld} for details.
-        To have immediate access to this information, do all your work from the console.
+        Modules cannot directly print to the screen like \cpp|printf()| can,
+        but they can log information and warnings that are eventually displayed on the screen,
+        specifically within a console.
+        If a module is loaded from an \sh|xterm|, the information and warnings will be logged,
+        but solely within the systemd journal. These logs will not be visible unless consulting the \sh|journalctl|.
+        Refer to \ref{sec:helloworld} for more information.
+        For instant access to this information, it is advisable to perform all tasks from the console.
   \item SecureBoot.
-        Many contemporary computers are pre-configured with UEFI SecureBoot enabled.
-        It is a security standard that can make sure the device boots using only software that is trusted by original equipment manufacturer.
-        The default Linux kernel from some distributions have also enabled the SecureBoot.
-        For such distributions, the kernel module has to be signed with the security key or you would get the "\emph{ERROR: could not insert module}" when you insert your first hello world module:
+        Numerous modern computers arrive pre-configured with UEFI SecureBoot enabled—an essential security standard ensuring booting exclusively through trusted software endorsed by the original equipment manufacturer.
+        Certain Linux distributions even ship with the default Linux kernel configured to support SecureBoot.
+        In these cases, the kernel module necessitates a signed security key.
 
-\begin{codebash}
-insmod ./hello-1.ko
-\end{codebash}
-        And then you can check further with \sh|dmesg| and see the following text:
-
-           \emph{Lockdown: insmod: unsigned module loading is restricted;
-                 see man kernel lockdown.7}
-
-        If you got this message, the simplest way is to disable the UEFI SecureBoot from the PC/laptop boot menu to have your "hello-1" to be inserted.
-        Of course you can go through complicated steps to generate keys, install keys to your system, and finally sign your module to make it work.
-        However, this is not suitable for beginners.
-        You could read and follow the steps in \href{https://wiki.debian.org/SecureBoot}{SecureBoot} if you are interested.
+        Failing this, an attempt to insert your first ``hello world'' module would result in the message: ``\emph{ERROR: could not insert module}''.
+        If this message \emph{Lockdown: insmod: unsigned module loading is restricted;
+        see man kernel lockdown.7} appears in the \sh|dmesg| output,
+        the simplest approach involves disabling UEFI SecureBoot from the boot menu of your PC or laptop,
+        allowing the successful insertion of ``hello world'' module.
+        Naturally, an alternative involves undergoing intricate procedures such as generating keys, system key installation,
+        and module signing to achieve functionality.
+        However, this intricate process is less appropriate for beginners. If interested,
+        more detailed steps for \href{https://wiki.debian.org/SecureBoot}{SecureBoot} can be explored and followed.
 \end{enumerate}
 
 \section{Headers}
 \label{sec:headers}
-Before you can build anything you'll need to install the header files for your kernel.
+Before building anything, it is necessary to install the header files for the kernel.
 
-On Ubuntu/Debian:
+On Ubuntu/Debian GNU/Linux:
 \begin{codebash}
 sudo apt-get update
 apt-cache search linux-headers-`uname -r`
 \end{codebash}
 
-This will tell you what kernel header files are available.
+The following command provides information on the available kernel header files.
 Then for example:
 \begin{codebash}
 sudo apt-get install kmod linux-headers-5.4.0-80-generic
@@ -215,21 +218,27 @@ On Arch Linux:
 sudo pacman -S linux-headers
 \end{codebash}
 
+On Fedora:
+\begin{codebash}
+sudo dnf install kernel-devel kernel-headers
+\end{codebash}
+
 \section{Examples}
 \label{sec:examples}
 All the examples from this document are available within the \verb|examples| subdirectory.
 
-If there are any compile errors then you might have a more recent kernel version or need to install the corresponding kernel header files.
+Should compile errors occur, it may be due to a more recent kernel version being in use,
+or there might be a need to install the corresponding kernel header files.
 
 \section{Hello World}
 \label{sec:helloworld}
 \subsection{The Simplest Module}
 \label{sec:org2d3e245}
-Most people learning programming start out with some sort of "\emph{hello world}" example.
-I don't know what happens to people who break with this tradition, but I think it is safer not to find out.
-We will start with a series of hello world programs that demonstrate the different aspects of the basics of writing a kernel module.
+Most individuals beginning their programming journey typically start with some variant of a \emph{hello world} example.
+It is unclear what the outcomes are for those who deviate from this tradition, but it seems prudent to adhere to it.
+The learning process will begin with a series of hello world programs that illustrate various fundamental aspects of writing a kernel module.
 
-Here is the simplest module possible.
+Presented next is the simplest possible module.
 
 Make a test directory:
 \begin{codebash}
@@ -249,10 +258,10 @@ obj-m += hello-1.o
 PWD := $(CURDIR)
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 \end{code}
 
 In \verb|Makefile|, \verb|$(CURDIR)| can set to the absolute pathname of the current working directory(after all \verb|-C| options are processed, if any). 
@@ -361,7 +370,7 @@ modinfo hello-1.ko
 
 At this point the command:
 \begin{codebash}
-sudo lsmod | grep hello
+lsmod | grep hello
 \end{codebash}
 
 should return nothing.
@@ -372,10 +381,10 @@ sudo insmod hello-1.ko
 
 The dash character will get converted to an underscore, so when you again try:
 \begin{codebash}
-sudo lsmod | grep hello
+lsmod | grep hello
 \end{codebash}
 
-you should now see your loaded module. It can be removed again with:
+You should now see your loaded module. It can be removed again with:
 \begin{codebash}
 sudo rmmod hello_1
 \end{codebash}
@@ -383,7 +392,7 @@ sudo rmmod hello_1
 Notice that the dash was replaced by an underscore.
 To see what just happened in the logs:
 \begin{codebash}
-sudo journalctl --since "1 hour ago" | grep kernel
+journalctl --since "1 hour ago" | grep kernel
 \end{codebash}
 
 You now know the basics of creating, compiling, installing and removing modules.
@@ -438,7 +447,7 @@ What happens?
 \label{hello_n_goodbye}
 In early kernel versions you had to use the \cpp|init_module| and \cpp|cleanup_module| functions, as in the first hello world example, but these days you can name those anything you want by using the \cpp|module_init| and \cpp|module_exit| macros.
 These macros are defined in \src{include/linux/module.h}.
-The only requirement is that your init and cleanup functions must be defined before calling the those macros, otherwise you'll get compilation errors.
+The only requirement is that your init and cleanup functions must be defined before calling those macros, otherwise you'll get compilation errors.
 Here is an example of this technique:
 
 \samplec{examples/hello-2.c}
@@ -452,10 +461,10 @@ obj-m += hello-2.o
 PWD := $(CURDIR)
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 \end{code}
 
 Now have a look at \src{drivers/char/Makefile} for a real world example.
@@ -537,7 +546,7 @@ It takes two parameters: a variable name and a free form string describing that 
 
 \samplec{examples/hello-5.c}
 
-I would recommend playing around with this code:
+It is recommended to experiment with the following code:
 \begin{verbatim}
 $ sudo insmod hello-5.ko mystring="bebop" myintarray=-1
 $ sudo dmesg -t | tail -7
@@ -595,10 +604,10 @@ startstop-objs := start.o stop.o
 PWD := $(CURDIR)
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 \end{code}
 
 This is the complete makefile for all the examples we have seen so far.
@@ -667,7 +676,7 @@ EXTRAVERSION = -rc2
 \end{verbatim}
 
 In this case, you need to restore the value of symbol \textbf{EXTRAVERSION} to \textbf{-rc2}.
-We suggest to keep a backup copy of the makefile used to compile your kernel available in \verb|/lib/modules/5.14.0-rc2/build|.
+We suggest keeping a backup copy of the makefile used to compile your kernel available in \verb|/lib/modules/5.14.0-rc2/build|.
 A simple command as following should suffice.
 \begin{codebash}
 cp /lib/modules/`uname -r`/build/Makefile linux-`uname -r`
@@ -699,24 +708,28 @@ Now you can turn back to the directory of your module and compile it: It will be
 \section{Preliminaries}
 \subsection{How modules begin and end}
 \label{sec:module_init_exit}
-A program usually begins with a \cpp|main()| function, executes a bunch of instructions and terminates upon completion of those instructions.
-Kernel modules work a bit differently. A module always begin with either the \cpp|init_module| or the function you specify with \cpp|module_init| call.
-This is the entry function for modules; it tells the kernel what functionality the module provides and sets up the kernel to run the module's functions when they are needed.
-Once it does this, entry function returns and the module does nothing until the kernel wants to do something with the code that the module provides.
+A typical program starts with a \cpp|main()| function, executes a series of instructions,
+and terminates after completing these instructions.
+Kernel modules, however, follow a different pattern.
+A module always begins with either the \cpp|init_module| function or a function designated by the \cpp|module_init| call.
+This function acts as the module's entry point,
+informing the kernel of the module's functionalities and preparing the kernel to utilize the module's functions when necessary.
+After performing these tasks, the entry function returns, and the module remains inactive until the kernel requires its code.
 
-All modules end by calling either \cpp|cleanup_module| or the function you specify with the \cpp|module_exit| call.
-This is the exit function for modules; it undoes whatever entry function did.
-It unregisters the functionality that the entry function registered.
+All modules conclude by invoking either \cpp|cleanup_module| or a function specified through the \cpp|module_exit| call.
+This serves as the module's exit function, reversing the actions of the entry function by unregistering the previously registered functionalities.
 
-Every module must have an entry function and an exit function.
-Since there's more than one way to specify entry and exit functions, I will try my best to use the terms ``entry function'' and ``exit function'', but if I slip and simply refer to them as \cpp|init_module| and \cpp|cleanup_module|, I think you will know what I mean.
+It is mandatory for every module to have both an entry and an exit function.
+While there are multiple methods to define these functions, the terms ``entry function'' and ``exit function'' are generally used.
+However, they may occasionally be referred to as \cpp|init_module| and \cpp|cleanup_module|,
+which are understood to mean the same.
 
 \subsection{Functions available to modules}
 \label{sec:avail_func}
 Programmers use functions they do not define all the time.
 A prime example of this is \cpp|printf()|.
 You use these library functions which are provided by the standard C library, libc.
-The definitions for these functions do not actually enter your program until the linking stage, which insures that the code (for \cpp|printf()| for example) is available, and fixes the call instruction to point to that code.
+The definitions for these functions do not actually enter your program until the linking stage, which ensures that the code (for \cpp|printf()| for example) is available, and fixes the call instruction to point to that code.
 
 Kernel modules are different here, too. In the hello world example, you might have noticed that we used a function, \cpp|pr_info()| but did not include a standard I/O library.
 That is because modules are object files whose symbols get resolved upon running \sh|insmod| or \sh|modprobe|.
@@ -760,13 +773,16 @@ Crackers often make use of this sort of thing for backdoors or trojans, but you 
 
 \subsection{User Space vs Kernel Space}
 \label{sec:user_kernl_space}
-A kernel is all about access to resources, whether the resource in question happens to be a video card, a hard drive or even memory.
-Programs often compete for the same resource. As I just saved this document, updatedb started updating the locate database.
-My vim session and updatedb are both using the hard drive concurrently.
-The kernel needs to keep things orderly, and not give users access to resources whenever they feel like it.
-To this end, a CPU can run in different modes.
-Each mode gives a different level of freedom to do what you want on the system.
-The Intel 80386 architecture had 4 of these modes, which were called rings. Unix uses only two rings; the highest ring (ring 0, also known as ``supervisor mode'' where everything is allowed to happen) and the lowest ring, which is called ``user mode''.
+The kernel primarily manages access to resources, be it a video card, hard drive, or memory.
+Programs frequently vie for the same resources.
+For instance, as a document is saved, updatedb might commence updating the locate database.
+Sessions in editors like vim and processes like updatedb can simultaneously utilize the hard drive.
+The kernel's role is to maintain order, ensuring that users do not access resources indiscriminately.
+
+To manage this, CPUs operate in different modes, each offering varying levels of system control.
+The Intel 80386 architecture, for example, featured four such modes, known as rings.
+Unix, however, utilizes only two of these rings: the highest ring (ring 0, also known as ``supervisor mode'',
+where all actions are permissible) and the lowest ring, referred to as ``user mode''.
 
 Recall the discussion about library functions vs system calls.
 Typically, you use a library function in user mode.
@@ -804,10 +820,11 @@ Therefore, if your module segfaults, the kernel segfaults.
 And if you start writing over data because of an off-by-one error, then you're trampling on kernel data (or code).
 This is even worse than it sounds, so try your best to be careful.
 
-By the way, I would like to point out that the above discussion is true for any operating system which uses a monolithic kernel.
-This is not quite the same thing as \emph{"building all your modules into the kernel"}, although the idea is the same.
-There are things called microkernels which have modules which get their own codespace.
-The \href{https://www.gnu.org/software/hurd/}{GNU Hurd} and the \href{https://fuchsia.dev/fuchsia-src/concepts/kernel}{Zircon kernel} of Google Fuchsia are two examples of a microkernel.
+It should be noted that the aforementioned discussion applies to any operating system utilizing a monolithic kernel.
+This concept differs slightly from \emph{``building all your modules into the kernel''},
+although the underlying principle is similar.
+In contrast, there are microkernels, where modules are allocated their own code space.
+Two notable examples of microkernels include the \href{https://www.gnu.org/software/hurd/}{GNU Hurd} and the \href{https://fuchsia.dev/fuchsia-src/concepts/kernel}{Zircon kernel} of Google's Fuchsia.
 
 \subsection{Device Drivers}
 \label{sec:device_drivers}
@@ -864,14 +881,14 @@ Linus put his device files in \verb|/dev|, and so should you.
 However, when creating a device file for testing purposes, it is probably OK to place it in your working directory where you compile the kernel module.
 Just be sure to put it in the right place when you're done writing the device driver.
 
-I would like to make a few last points which are implicit from the above discussion, but I would like to make them explicit just in case.
-When a device file is accessed, the kernel uses the major number of the file to determine which driver should be used to handle the access.
-This means that the kernel doesn't really need to use or even know about the minor number.
-The driver itself is the only thing that cares about the minor number.
-It uses the minor number to distinguish between different pieces of hardware.
+A few final points, although implicit in the previous discussion, are worth stating explicitly for clarity.
+When a device file is accessed, the kernel utilizes the file's major number to identify the appropriate driver for handling the access.
+This indicates that the kernel does not necessarily rely on or need to be aware of the minor number.
+It is the driver that concerns itself with the minor number, using it to differentiate between various pieces of hardware.
 
-By the way, when I say \emph{"hardware"}, I mean something a bit more abstract than a PCI card that you can hold in your hand.
-Look at these two device files:
+It is important to note that when referring to \emph{``hardware''},
+the term is used in a slightly more abstract sense than just a physical PCI card that can be held in hand.
+Consider the following two device files:
 
 \begin{verbatim}
 $ ls -l /dev/sda /dev/sdb
@@ -1035,7 +1052,7 @@ int alloc_chrdev_region(dev_t *dev, unsigned baseminor, unsigned count, const ch
 \end{code}
 
 The choice between two different functions depends on whether you know the major numbers for your device.
-Using \cpp|register_chrdev_region| if you know the device major number and \cpp|alloc_chrdev_region| if you would like to allocate a dynamicly-allocated major number.
+Using \cpp|register_chrdev_region| if you know the device major number and \cpp|alloc_chrdev_region| if you would like to allocate a dynamically-allocated major number.
 
 Second, we should initialize the data structure \cpp|struct cdev| for our char device and associate it with the device numbers.
 To initialize the \cpp|struct cdev|, we can achieve by the similar sequence of the following codes.
@@ -1058,7 +1075,7 @@ Once we finish the initialization, we can add the char device to the system by u
 int cdev_add(struct cdev *p, dev_t dev, unsigned count);
 \end{code}
 
-To find a example using the interface, you can see \verb|ioctl.c| described in section \ref{sec:device_files}.
+To find an example using the interface, you can see \verb|ioctl.c| described in section \ref{sec:device_files}.
 
 \subsection{Unregistering A Device}
 \label{sec:unregister_device}
@@ -1071,7 +1088,7 @@ The results of this would be impossible to predict, but they can not be very pos
 Normally, when you do not want to allow something, you return an error code (a negative number) from the function which is supposed to do it.
 With \cpp|cleanup_module| that's impossible because it is a void function.
 However, there is a counter which keeps track of how many processes are using your module.
-You can see what its value is by looking at the 3rd field with the command \sh|cat /proc/modules| or \sh|sudo lsmod|.
+You can see what its value is by looking at the 3rd field with the command \sh|cat /proc/modules| or \sh|lsmod|.
 If this number isn't zero, \sh|rmmod| will fail.
 Note that you do not have to check the counter within \cpp|cleanup_module| because the check will be performed for you by the system call \cpp|sys_delete_module|, defined in \src{include/linux/syscalls.h}.
 You should not use this counter directly, but there are functions defined in \src{include/linux/module.h} which let you increase, decrease and display this counter:
@@ -1137,7 +1154,7 @@ This is the HelloWorld for the \verb|/proc| filesystem.
 There are three parts: create the file \verb|/proc/helloworld| in the function \cpp|init_module|, return a value (and a buffer) when the file \verb|/proc/helloworld| is read in the callback function \cpp|procfile_read|, and delete the file \verb|/proc/helloworld| in the function \cpp|cleanup_module|.
 
 The \verb|/proc/helloworld| is created when the module is loaded with the function \cpp|proc_create|.
-The return value is a \cpp|struct proc_dir_entry|, and it will be used to configure the file \verb|/proc/helloworld| (for example, the owner of this file).
+The return value is a pointer to \cpp|struct proc_dir_entry|, and it will be used to configure the file \verb|/proc/helloworld| (for example, the owner of this file).
 A null return value means that the creation has failed.
 
 Every time the file \verb|/proc/helloworld| is read, the function \cpp|procfile_read| is called.
@@ -1193,7 +1210,7 @@ Since every file system has to have its own functions to handle inode and file o
 The difference between file and inode operations is that file operations deal with the file itself whereas inode operations deal with ways of referencing the file, such as creating links to it.
 
 In \verb|/proc|, whenever we register a new file, we're allowed to specify which \cpp|struct inode_operations| will be used to access to it.
-This is the mechanism we use, a \cpp|struct inode_operations| which includes a pointer to a \cpp|struct proc_ops| which includes pointers to our \cpp|procf_read| and \cpp|procfs_write| functions.
+This is the mechanism we use, a \cpp|struct inode_operations| which includes a pointer to a \cpp|struct proc_ops| which includes pointers to our \cpp|procfs_read| and \cpp|procfs_write| functions.
 
 Another interesting point here is the \cpp|module_permission| function.
 This function is called whenever a process tries to do something with the \verb|/proc| file, and it can decide whether to allow access or not.
@@ -1212,12 +1229,12 @@ Consider using this mechanism, in case you want to document something kernel rel
 \subsection{Manage /proc file with seq\_file}
 \label{sec:manage_procfs_with_seq_file}
 As we have seen, writing a \verb|/proc| file may be quite ``complex''.
-So to help people writting \verb|/proc| file, there is an API named \cpp|seq_file| that helps formating a \verb|/proc| file for output.
+So to help people writing \verb|/proc| file, there is an API named \cpp|seq_file| that helps formatting a \verb|/proc| file for output.
 It is based on sequence, which is composed of 3 functions: \cpp|start()|, \cpp|next()|, and \cpp|stop()|.
 The \cpp|seq_file| API starts a sequence when a user read the \verb|/proc| file.
 
 A sequence begins with the call of the function \cpp|start()|.
-If the return is a non \cpp|NULL| value, the function \cpp|next()| is called.
+If the return is a non \cpp|NULL| value, the function \cpp|next()| is called; otherwise, the \cpp|stop()| function is called directly.
 This function is an iterator, the goal is to go through all the data.
 Each time \cpp|next()| is called, the function \cpp|show()| is also called.
 It writes data values in the buffer read by the user.
@@ -1234,13 +1251,12 @@ You can see a scheme of this in the Figure~\ref{img:seqfile}.
   \begin{tikzpicture}[node distance=2cm, thick]
     \node (start) [startstop] {start() treatment};
     \node (branch1) [decision, below of=start, yshift=-1cm] {return is NULL?};
-    \node (emptynode) [right of=branch1, xshift=2cm] {Yes};
     \node (next) [process, below of=branch1, yshift=-1cm] {next() treatment};
     \node (branch2) [decision, below of=next, yshift=-1cm] {return is NULL?};
     \node (stop) [startstop, below of=branch2, yshift=-1cm] {stop() treatment};
 
     \draw [->] (start) -- (branch1);
-    \draw [->] (branch1) -- node[anchor=east] {} (emptynode);
+    \draw [->] (branch1.east) to [out=135, in=-135, bend left=45] node [right] {Yes} (stop.east);
     \draw [->] (branch1) -- node[left=2em, anchor=south] {No} (next);
     \draw [->] (next) -- (branch2);
     \draw [->] (branch2.west) to [out=135, in=-135, bend left=45] node [left] {No} (next.west);
@@ -1324,7 +1340,7 @@ sudo insmod hello-sysfs.ko
 Check that it exists:
 
 \begin{codebash}
-sudo lsmod | grep hello_sysfs
+lsmod | grep hello_sysfs
 \end{codebash}
 
 What is the current value of \cpp|myvariable| ?
@@ -1336,7 +1352,7 @@ cat /sys/kernel/mymodule/myvariable
 Set the value of \cpp|myvariable| and check that it changed.
 
 \begin{codebash}
-echo "32" > /sys/kernel/mymodule/myvariable
+echo "32" | sudo tee /sys/kernel/mymodule/myvariable
 cat /sys/kernel/mymodule/myvariable
 \end{codebash}
 
@@ -1400,12 +1416,12 @@ This is fine if you want to do something the kernel programmers thought you'd wa
 But what if you want to do something unusual, to change the behavior of the system in some way?
 Then, you are mostly on your own.
 
-If you are not being sensible and using a virtual machine then this is where kernel programming can become hazardous.
-While writing the example below, I killed the \cpp|open()| system call.
-This meant I could not open any files, I could not run any programs, and I could not shutdown the system.
-I had to restart the virtual machine.
-No important files got annihilated, but if I was doing this on some live mission critical system then that could have been a possible outcome.
-To ensure you do not lose any files, even within a test environment, please run \sh|sync| right before you do the \sh|insmod| and the \sh|rmmod|.
+Should one choose not to use a virtual machine, kernel programming can become risky.
+For example, while writing the code below, the \cpp|open()| system call was inadvertently disrupted.
+This resulted in an inability to open any files, run programs, or shut down the system, necessitating a restart of the virtual machine.
+Fortunately, no critical files were lost in this instance.
+However, if such modifications were made on a live, mission-critical system, the consequences could be severe.
+To mitigate the risk of file loss, even in a test environment, it is advised to execute \sh|sync| right before using \sh|insmod| and \sh|rmmod|.
 
 Forget about \verb|/proc| files, forget about device files.
 They are just minor details.
@@ -1447,7 +1463,9 @@ But there have few ways to get the symbol, manual symbol lookup and \cpp|kallsym
 Here we use both depend on the kernel version.
 
 Because of the \textit{control-flow integrity}, which is a technique to prevent the redirect execution code from the attacker, for making sure that the indirect calls go to the expected addresses and the return addresses are not changed.
-Since Linux v5.7, the kernel patched the series of \textit{control-flow enforcement} (CET) for x86, and some configurations of GCC, like GCC versions 9 and 10 in Ubuntu, will add with CET (the \verb|-fcf-protection| option) in the kernel by default.
+Since Linux v5.7, the kernel patched the series of \textit{control-flow enforcement} (CET) for x86,
+and some configurations of GCC, like GCC versions 9 and 10 in Ubuntu Linux,
+will add with CET (the \verb|-fcf-protection| option) in the kernel by default.
 Using that GCC to compile the kernel with retpoline off may result in CET being enabled in the kernel.
 You can use the following command to check out the \verb|-fcf-protection| option is enabled or not:
 \begin{verbatim}
@@ -1481,7 +1499,7 @@ $ sudo grep sys_call_table /proc/kallsyms
 ffffffff82000280 R x32_sys_call_table
 ffffffff820013a0 R sys_call_table
 ffffffff820023e0 R ia32_sys_call_table
-$ sudo insmod syscall.ko sym=0xffffffff820013a0
+$ sudo insmod syscall-steal.ko sym=0xffffffff820013a0
 \end{verbatim}
 
 Using the address from \verb|/boot/System.map|, be careful about \verb|KASLR| (Kernel Address Space Layout Randomization).
@@ -1548,11 +1566,16 @@ At first glance, it appears we could solve this particular problem by checking i
 When A is removed, it sees that the system call was changed to \cpp|B_openat| so that it is no longer pointing to \cpp|A_openat|, so it will not restore it to \cpp|sys_openat| before it is removed from memory.
 Unfortunately, \cpp|B_openat| will still try to call \cpp|A_openat| which is no longer there, so that even without removing B the system would crash.
 
+For x86 architecture, the system call table cannot be used to invoke a system call after commit 
+\href{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1e3ad78334a69b36e107232e337f9d693dcc9df2}{1e3ad78} since v6.9. 
+This commit has been backported to long term stable kernels, like v5.15.154+, v6.1.85+, v6.6.26+ and v6.8.5+, see this \href{https://stackoverflow.com/a/78607015}{answer} for more details.
+In this case, thanks to Kprobes, a hook can be used instead on the system call entry to intercept the system call.
+
 Note that all the related problems make syscall stealing unfeasible for production use.
 In order to keep people from doing potential harmful things \cpp|sys_call_table| is no longer exported.
 This means, if you want to do something more than a mere dry run of this example, you will have to patch your current kernel in order to have \cpp|sys_call_table| exported.
 
-\samplec{examples/syscall.c}
+\samplec{examples/syscall-steal.c}
 
 \section{Blocking Processes and threads}
 \label{sec:blocking_process_thread}
@@ -1635,16 +1658,19 @@ $
 Sometimes one thing should happen before another within a module having multiple threads.
 Rather than using \sh|/bin/sleep| commands, the kernel has another way to do this which allows timeouts or interrupts to also happen.
 
-In the following example two threads are started, but one needs to start before another.
+Completions as code synchronization mechanism have three main parts, initialization of struct completion synchronization object, the waiting or barrier part through \cpp|wait_for_completion()|, and the signalling side through a call to \cpp|complete()|.
+
+In the subsequent example, two threads are initiated: crank and flywheel. 
+It is imperative that the crank thread starts before the flywheel thread. 
+A completion state is established for each of these threads, with a distinct completion defined for both the crank and flywheel threads.
+At the exit point of each thread the respective completion state is updated, and \cpp|wait_for_completion| is used by the flywheel thread to ensure that it does not begin prematurely.
+The crank thread uses the \cpp|complete_all()| function to update the completion, which lets the flywheel thread continue.
+
+So even though \cpp|flywheel_thread| is started first you should notice when you load this module and run \sh|dmesg|, that turning the crank always happens first because the flywheel thread waits for the crank thread to complete.
+
+There are other variations of the \cpp|wait_for_completion| function, which include timeouts or being interrupted, but this basic mechanism is enough for many common situations without adding a lot of complexity.
 
 \samplec{examples/completions.c}
-
-The \cpp|machine| structure stores the completion states for the two threads.
-At the exit point of each thread the respective completion state is updated, and \cpp|wait_for_completion| is used by the flywheel thread to ensure that it does not begin prematurely.
-
-So even though \cpp|flywheel_thread| is started first you should notice if you load this module and run \sh|dmesg| that turning the crank always happens first because the flywheel thread waits for it to complete.
-
-There are other variations upon the \cpp|wait_for_completion| function, which include timeouts or being interrupted, but this basic mechanism is enough for many common situations without adding a lot of complexity.
 
 \section{Avoiding Collisions and Deadlocks}
 \label{sec:synchronization}
@@ -1666,6 +1692,21 @@ Because of this you should only use the spinlock mechanism around code which is 
 The example here is \verb|"irq safe"| in that if interrupts happen during the lock then they will not be forgotten and will activate when the unlock happens, using the \cpp|flags| variable to retain their state.
 
 \samplec{examples/example_spinlock.c}
+
+Taking 100\% of a CPU's resources comes with greater responsibility.
+Situations where the kernel code monopolizes a CPU are called \textbf{atomic contexts}.
+Holding a spinlock is one of those situations.
+Sleeping in atomic contexts may leave the system hanging, as the occupied CPU devotes 100\% of its resources doing nothing but sleeping.
+In some worse cases the system may crash.
+Thus, sleeping in atomic contexts is considered a bug in the kernel.
+They are sometimes called ``sleep-in-atomic-context'' in some materials.
+
+Note that sleeping here is not limited to calling the sleep functions explicitly.
+If subsequent function calls eventually invoke a function that sleeps, it is also considered sleeping.
+Thus, it is important to pay attention to functions being used in atomic context.
+There's no documentation recording all such functions, but code comments may help.
+Sometimes you may find comments in kernel source code stating that a function ``may sleep'', ``might sleep'', or more explicitly ``the caller should not hold a spinlock''.
+Those comments are hints that a function may implicitly sleep and must not be called in atomic contexts.
 
 \subsection{Read and write locks}
 \label{sec:rwlock}
@@ -1699,14 +1740,16 @@ For further details, see:
 \label{sec:print_macros}
 \subsection{Replacement}
 % FIXME: cross-reference
-In Section \ref{sec:using_x}, I said that X Window System and kernel module programming do not mix.
-That is true for developing kernel modules.
-But in actual use, you want to be able to send messages to whichever tty the command to load the module came from.
+In Section \ref{sec:preparation}, it was noted that the X Window System and kernel module programming are not conducive to integration.
+This remains valid during the development of kernel modules.
+However, in practical scenarios, the necessity emerges to relay messages to the tty (teletype) originating the module load command.
 
-"tty" is an abbreviation of \emph{teletype}: originally a combination keyboard-printer used to communicate with a Unix system, and today an abstraction for the text stream used for a Unix program, whether it is a physical terminal, an xterm on an X display, a network connection used with ssh, etc.
+The term ``tty'' originates from \emph{teletype}, which initially referred to a combined keyboard-printer for Unix system communication.
+Today, it signifies a text stream abstraction employed by Unix programs, encompassing physical terminals,
+xterms in X displays, and network connections like SSH.
 
-The way this is done is by using current, a pointer to the currently running task, to get the current task's tty structure.
-Then, we look inside that tty structure to find a pointer to a string write function, which we use to write a string to the tty.
+To achieve this, the ``current'' pointer is leveraged to access the active task's tty structure.
+Within this structure lies a pointer to a string write function, facilitating the string's transmission to the tty.
 
 \samplec{examples/print_string.c}
 
@@ -1717,7 +1760,7 @@ Flashing keyboard LEDs can be such a solution: It is an immediate way to attract
 Keyboard LEDs are present on every hardware, they are always visible, they do not need any setup, and their use is rather simple and non-intrusive, compared to writing to a tty or a file.
 
 From v4.14 to v4.15, the timer API made a series of changes to improve memory safety.
-A buffer overflow in the area of a \cpp|timer_list| structure may be able to overwrite the \cpp|function| and \cpp|data| fields, providing the attacker with a way to use return-object programming (ROP) to call arbitrary functions within the kernel.
+A buffer overflow in the area of a \cpp|timer_list| structure may be able to overwrite the \cpp|function| and \cpp|data| fields, providing the attacker with a way to use return-oriented programming (ROP) to call arbitrary functions within the kernel.
 Also, the function prototype of the callback, containing a \cpp|unsigned long| argument, will prevent work from any type checking.
 Furthermore, the function prototype with \cpp|unsigned long| argument may be an obstacle to the forward-edge protection of \textit{control-flow integrity}.
 Thus, it is better to use a unique prototype to separate from the cluster that takes an \cpp|unsigned long| argument.
@@ -1779,6 +1822,10 @@ There are two main ways of running tasks: tasklets and work queues.
 Tasklets are a quick and easy way of scheduling a single function to be run.
 For example, when triggered from an interrupt, whereas work queues are more complicated but also better suited to running multiple things in a sequence.
 
+It is possible that in future tasklets may be replaced by \textit{threaded irqs}.
+However, discussion about that has been ongoing since 2007 (\href{https://lwn.net/Articles/239633}{Eliminating tasklets}), so do not hold your breath.
+See the section \ref{sec:irq} if you wish to avoid the tasklet debate.
+
 \subsection{Tasklets}
 \label{sec:tasklet}
 Here is an example tasklet module.
@@ -1795,7 +1842,7 @@ Example tasklet starts
 Example tasklet init continues...
 Example tasklet ends
 \end{verbatim}
-Although tasklet is easy to use, it comes with several defators, and developers are discussing about getting rid of tasklet in linux kernel.
+Although tasklet is easy to use, it comes with several drawbacks, and developers are discussing about getting rid of tasklet in linux kernel.
 The tasklet callback runs in atomic context, inside a software interrupt, meaning that it cannot sleep or access user-space data, so not all work can be done in a tasklet handler.
 Also, the kernel only allows one instance of any given tasklet to be running at any given time; multiple different tasklet callbacks can run in parallel.
 
@@ -1855,7 +1902,14 @@ People still interested in more details, might want to refer to "APIC" now.
 This function receives the IRQ number, the name of the function, flags, a name for \verb|/proc/interrupts| and a parameter to be passed to the interrupt handler.
 Usually there is a certain number of IRQs available.
 How many IRQs there are is hardware-dependent.
-The flags can include \cpp|SA_SHIRQ| to indicate you are willing to share the IRQ with other interrupt handlers (usually because a number of hardware devices sit on the same IRQ) and \cpp|SA_INTERRUPT| to indicate this is a fast interrupt.
+
+The flags can be used for specify behaviors of the IRQ.
+For example, use \cpp|IRQF_SHARED| to indicate you are willing to share the IRQ with other interrupt handlers (usually because a number of hardware devices sit on the same IRQ); use the \cpp|IRQF_ONESHOT| to indicate that the IRQ is not reenabled after the handler finished.
+It should be noted that in some materials, you may encounter another set of IRQ flags named with the \cpp|SA| prefix.
+For example, the \cpp|SA_SHIRQ| and the \cpp|SA_INTERRUPT|.
+Those are the the IRQ flags in the older kernels.
+They have been removed completely.
+Today only the \cpp|IRQF| flags are in use.
 This function will only succeed if there is not already a handler on this IRQ, or if you are both willing to share.
 
 \subsection{Detecting button presses}
@@ -1879,42 +1933,39 @@ The example below modifies the previous example to also run an additional task w
 
 \samplec{examples/bottomhalf.c}
 
-\section{Crypto}
-\label{sec:crypto}
-At the dawn of the internet, everybody trusted everybody completely\ldots{}but that did not work out so well.
-When this guide was originally written, it was a more innocent era in which almost nobody actually gave a damn about crypto - least of all kernel developers.
-That is certainly no longer the case now.
-To handle crypto stuff, the kernel has its own API enabling common methods of encryption, decryption and your favourite hash functions.
+\subsection{Threaded IRQ}
 
-\subsection{Hash functions}
-\label{sec:hashfunc}
+Threaded IRQ is a mechanism to organize both top-half and bottom-half of an IRQ at once.
+A threaded IRQ splits the one handler in \cpp|request_irq()| into two: one for the top-half, the other for the bottom-half.
+The \cpp|request_threaded_irq()| is the function for using threaded IRQs.
+Two handlers are registered at once in the \cpp|request_threaded_irq()|.
 
-Calculating and checking the hashes of things is a common operation.
-Here is a demonstration of how to calculate a sha256 hash within a kernel module.
-To provide the sha256 algorithm support, make sure \cpp|CONFIG_CRYPTO_SHA256| is enabled in kernel.
+Those two handlers run in different context.
+The top-half handler runs in interrupt context.
+It's the equivalence of the handler passed to the \cpp|request_irq()|.
+The bottom-half handler on the other hand runs in its own thread.
+This thread is created on registration of a threaded IRQ.
+Its sole purpose is to run this bottom-half handler.
+This is where a threaded IRQ is ``threaded''.
+If \cpp|IRQ_WAKE_THREAD| is returned by the top-half handler, that bottom-half serving thread will wake up.
+The thread then runs the bottom-half handler.
 
-\samplec{examples/cryptosha256.c}
+Here is an example of how to do the same thing as before, with top and bottom halves, but using threads.
 
-Install the module:
+\samplec{examples/bh_threaded.c}
 
-\begin{codebash}
-sudo insmod cryptosha256.ko
-sudo dmesg
-\end{codebash}
+A threaded IRQ is registered using \cpp|request_threaded_irq()|.
+This function only takes one additional parameter than the \cpp|request_irq()| -- the bottom-half handling function that runs in its own thread.
+In this example it is the \cpp|button_bottom_half()|.
+Usage of other parameters are the same as \cpp|request_irq()|.
 
-And you should see that the hash was calculated for the test string.
+Presence of both handlers is not mandatory.
+If either of them is not needed, pass the \cpp|NULL| instead.
+A \cpp|NULL| top-half handler implies that no action is taken except to wake up the bottom-half serving thread, which runs the bottom-half handler.
+Similarly, a \cpp|NULL| bottom-half handler effectively acts as if \cpp|request_irq()| were used.
+In fact, this is how \cpp|request_irq()| is implemented.
 
-Finally, remove the test module:
-
-\begin{codebash}
-sudo rmmod cryptosha256
-\end{codebash}
-
-\subsection{Symmetric key encryption}
-\label{sec:org2fab20b}
-Here is an example of symmetrically encrypting a string using the AES algorithm and a password.
-
-\samplec{examples/cryptosk.c}
+Note that passing \cpp|NULL| to both handlers is considered an error and will make registration fail.
 
 \section{Virtual Input Device Driver}
 \label{sec:vinput}
@@ -2017,7 +2068,7 @@ echo "-34" | sudo tee /dev/vinput0
 \section{Standardizing the interfaces: The Device Model}
 \label{sec:device_model}
 Up to this point we have seen all kinds of modules doing all kinds of things, but there was no consistency in their interfaces with the rest of the kernel.
-To impose some consistency such that there is at minimum a standardized way to start, suspend and resume a device a device model was added.
+To impose some consistency such that there is at minimum a standardized way to start, suspend and resume a device model was added.
 An example is shown below, and you can use this as a template to add your own suspend, resume or other interface functions.
 
 \samplec{examples/devicemodel.c}
@@ -2075,7 +2126,7 @@ pr_info("fastpath 2\n");
 
 If the key is enabled at runtime by calling \cpp|static_branch_enable(&fkey)|, the fastpath will be patched with an unconditional jump instruction to the slowpath code \cpp|pr_alert|, so the branch will always be taken until the key is disabled again.
 
-The following kernel module derived from \verb|chardev.c|, demostrates how the static key works.
+The following kernel module derived from \verb|chardev.c|, demonstrates how the static key works.
 
 \samplec{examples/static_key.c}
 
@@ -2112,11 +2163,14 @@ You might need to do this for a short time and that is OK, but if you do not ena
 
 \section{Where To Go From Here?}
 \label{sec:where_to_go}
-For people seriously interested in kernel programming, I recommend \href{https://kernelnewbies.org}{kernelnewbies.org} and the \src{Documentation} subdirectory within the kernel source code which is not always easy to understand but can be a starting point for further investigation.
-Also, as Linus Torvalds said, the best way to learn the kernel is to read the source code yourself.
+For those deeply interested in kernel programming,
+\href{https://kernelnewbies.org}{kernelnewbies.org} and the \src{Documentation} subdirectory within the kernel source code are highly recommended.
+Although the latter may not always be straightforward, it serves as a valuable initial step for further exploration.
+Echoing Linus Torvalds' perspective, the most effective method to understand the kernel is through personal examination of the source code.
 
-If you would like to contribute to this guide or notice anything glaringly wrong, please create an issue at \url{https://github.com/sysprog21/lkmpg}.
-Your pull requests will be appreciated.
+Contributions to this guide are welcome, especially if there are any significant inaccuracies identified.
+To contribute or report an issue, please initiate an issue at \url{https://github.com/sysprog21/lkmpg}.
+Pull requests are greatly appreciated.
 
 Happy hacking!
 \end{document}

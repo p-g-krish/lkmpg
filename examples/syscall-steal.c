@@ -1,13 +1,10 @@
 /*
- * syscall.c
+ * syscall-steal.c
  *
  * System call "stealing" sample.
  *
  * Disables page protection at a processor level by changing the 16th bit
  * in the cr0 register (could be Intel specific).
- *
- * Based on example by Peter Jay Salzman and
- * https://bbs.archlinux.org/viewtopic.php?id=139406
  */
 
 #include <linux/delay.h>
@@ -46,6 +43,14 @@
 
 #if defined(CONFIG_KPROBES)
 #define HAVE_KPROBES 1
+#if defined(CONFIG_X86_64)
+/* If you have tried to use the syscall table to intercept syscalls and it 
+ * doesn't work, you can try to use Kprobes to intercept syscalls.
+ * Set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 1 to register a pre-handler
+ * before the syscall.
+ */
+#define USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL 0
+#endif
 #include <linux/kprobes.h>
 #else
 #define HAVE_PARAM 1
@@ -61,11 +66,37 @@ module_param(sym, ulong, 0644);
 
 #endif /* Version < v5.7 */
 
-static unsigned long **sys_call_table;
-
 /* UID we want to spy on - will be filled from the command line. */
 static uid_t uid = -1;
 module_param(uid, int, 0644);
+
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+
+/* syscall_sym is the symbol name of the syscall to spy on. The default is
+ * "__x64_sys_openat", which can be changed by the module parameter. You can 
+ * look up the symbol name of a syscall in /proc/kallsyms.
+ */
+static char *syscall_sym = "__x64_sys_openat";
+module_param(syscall_sym, charp, 0644);
+
+static int sys_call_kprobe_pre_handler(struct kprobe *p, struct pt_regs *regs)
+{
+    if (__kuid_val(current_uid()) != uid) {
+        return 0;
+    }
+
+    pr_info("%s called by %d\n", syscall_sym, uid);
+    return 0;
+}
+
+static struct kprobe syscall_kprobe = {
+    .symbol_name = "__x64_sys_openat",
+    .pre_handler = sys_call_kprobe_pre_handler,
+};
+
+#else
+
+static unsigned long **sys_call_table_stolen;
 
 /* A pointer to the original system call. The reason we keep this, rather
  * than call the original function (sys_openat), is because somebody else
@@ -205,34 +236,49 @@ static void disable_write_protection(void)
     clear_bit(16, &cr0);
     __write_cr0(cr0);
 }
+#endif
 
-static int __init syscall_start(void)
+static int __init syscall_steal_start(void)
 {
-    if (!(sys_call_table = acquire_sys_call_table()))
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+    int err;
+    /* use symbol name from the module parameter */
+    syscall_kprobe.symbol_name = syscall_sym;
+    err = register_kprobe(&syscall_kprobe);
+    if (err) {
+        pr_err("register_kprobe() on %s failed: %d\n", syscall_sym, err);
+        pr_err("Please check the symbol name from 'syscall_sym' parameter.\n");
+        return err;
+    }
+#else
+    if (!(sys_call_table_stolen = acquire_sys_call_table()))
         return -1;
 
     disable_write_protection();
 
     /* keep track of the original open function */
-    original_call = (void *)sys_call_table[__NR_openat];
+    original_call = (void *)sys_call_table_stolen[__NR_openat];
 
     /* use our openat function instead */
-    sys_call_table[__NR_openat] = (unsigned long *)our_sys_openat;
+    sys_call_table_stolen[__NR_openat] = (unsigned long *)our_sys_openat;
 
     enable_write_protection();
+#endif
 
     pr_info("Spying on UID:%d\n", uid);
-
     return 0;
 }
 
-static void __exit syscall_end(void)
+static void __exit syscall_steal_end(void)
 {
-    if (!sys_call_table)
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+    unregister_kprobe(&syscall_kprobe);
+#else
+    if (!sys_call_table_stolen)
         return;
 
     /* Return the system call back to normal */
-    if (sys_call_table[__NR_openat] != (unsigned long *)our_sys_openat) {
+    if (sys_call_table_stolen[__NR_openat] != (unsigned long *)our_sys_openat) {
         pr_alert("Somebody else also played with the ");
         pr_alert("open system call\n");
         pr_alert("The system may be left in ");
@@ -240,13 +286,14 @@ static void __exit syscall_end(void)
     }
 
     disable_write_protection();
-    sys_call_table[__NR_openat] = (unsigned long *)original_call;
+    sys_call_table_stolen[__NR_openat] = (unsigned long *)original_call;
     enable_write_protection();
+#endif
 
     msleep(2000);
 }
 
-module_init(syscall_start);
-module_exit(syscall_end);
+module_init(syscall_steal_start);
+module_exit(syscall_steal_end);
 
 MODULE_LICENSE("GPL");

@@ -1,70 +1,51 @@
 /*
- * bottomhalf.c - Top and bottom half interrupt handling
+ * bh_thread.c - Top and bottom half interrupt handling
  *
  * Based upon the RPi example by Stefan Wendler (devnull@kaltpost.de)
  * from:
  *    https://github.com/wendlers/rpi-kmod-samples
  *
- * Press one button to turn on an LED and another to turn it off
+ * Press one button to turn on a LED and another to turn it off
  */
 
-#include <linux/delay.h>
-#include <linux/gpio.h>
-#include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/printk.h>
-#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
 #include <linux/version.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
 #define NO_GPIO_REQUEST_ARRAY
 #endif
 
-/* Macro DECLARE_TASKLET_OLD exists for compatibility.
- * See https://lwn.net/Articles/830964/
- */
-#ifndef DECLARE_TASKLET_OLD
-#define DECLARE_TASKLET_OLD(arg1, arg2) DECLARE_TASKLET(arg1, arg2, 0L)
-#endif
-
 static int button_irqs[] = { -1, -1 };
 
 /* Define GPIOs for LEDs.
- * TODO: Change the numbers for the GPIO on your board.
+ * FIXME: Change the numbers for the GPIO on your board.
  */
 static struct gpio leds[] = { { 4, GPIOF_OUT_INIT_LOW, "LED 1" } };
 
 /* Define GPIOs for BUTTONS
- * TODO: Change the numbers for the GPIO on your board.
+ * FIXME: Change the numbers for the GPIO on your board.
  */
 static struct gpio buttons[] = {
     { 17, GPIOF_IN, "LED 1 ON BUTTON" },
     { 18, GPIOF_IN, "LED 1 OFF BUTTON" },
 };
 
-/* Tasklet containing some non-trivial amount of processing */
-static void bottomhalf_tasklet_fn(unsigned long data)
+/* This happens immediately, when the IRQ is triggered */
+static irqreturn_t button_top_half(int irq, void *ident)
 {
-    pr_info("Bottom half tasklet starts\n");
-    /* do something which takes a while */
-    mdelay(500);
-    pr_info("Bottom half tasklet ends\n");
+    return IRQ_WAKE_THREAD;
 }
 
-static DECLARE_TASKLET_OLD(buttontask, bottomhalf_tasklet_fn);
-
-/* interrupt function triggered when a button is pressed */
-static irqreturn_t button_isr(int irq, void *data)
+/* This can happen at leisure, freeing up IRQs for other high priority task */
+static irqreturn_t button_bottom_half(int irq, void *ident)
 {
-    /* Do something quickly right now */
-    if (irq == button_irqs[0] && !gpio_get_value(leds[0].gpio))
-        gpio_set_value(leds[0].gpio, 1);
-    else if (irq == button_irqs[1] && gpio_get_value(leds[0].gpio))
-        gpio_set_value(leds[0].gpio, 0);
-
-    /* Do the rest at leisure via the scheduler */
-    tasklet_schedule(&buttontask);
-
+    pr_info("Bottom half task starts\n");
+    mdelay(500); /* do something which takes a while */
+    pr_info("Bottom half task ends\n");
     return IRQ_HANDLED;
 }
 
@@ -74,7 +55,7 @@ static int __init bottomhalf_init(void)
 
     pr_info("%s\n", __func__);
 
-    /* register LED gpios */
+/* register LED gpios */
 #ifdef NO_GPIO_REQUEST_ARRAY
     ret = gpio_request(leds[0].gpio, leds[0].label);
 #else
@@ -86,7 +67,7 @@ static int __init bottomhalf_init(void)
         return ret;
     }
 
-    /* register BUTTON gpios */
+/* register BUTTON gpios */
 #ifdef NO_GPIO_REQUEST_ARRAY
     ret = gpio_request(buttons[0].gpio, buttons[0].label);
 
@@ -127,9 +108,10 @@ static int __init bottomhalf_init(void)
 
     pr_info("Successfully requested BUTTON1 IRQ # %d\n", button_irqs[0]);
 
-    ret = request_irq(button_irqs[0], button_isr,
-                      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-                      "gpiomod#button1", NULL);
+    ret = request_threaded_irq(button_irqs[0], button_top_half,
+                               button_bottom_half,
+                               IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+                               "gpiomod#button1", &buttons[0]);
 
     if (ret) {
         pr_err("Unable to request IRQ: %d\n", ret);
@@ -155,9 +137,10 @@ static int __init bottomhalf_init(void)
 
     pr_info("Successfully requested BUTTON2 IRQ # %d\n", button_irqs[1]);
 
-    ret = request_irq(button_irqs[1], button_isr,
-                      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-                      "gpiomod#button2", NULL);
+    ret = request_threaded_irq(button_irqs[1], button_top_half,
+                               button_bottom_half,
+                               IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+                               "gpiomod#button2", &buttons[1]);
 
     if (ret) {
         pr_err("Unable to request IRQ: %d\n", ret);
@@ -205,7 +188,7 @@ static void __exit bottomhalf_exit(void)
     free_irq(button_irqs[0], NULL);
     free_irq(button_irqs[1], NULL);
 
-    /* turn all LEDs off */
+/* turn all LEDs off */
 #ifdef NO_GPIO_REQUEST_ARRAY
     gpio_set_value(leds[0].gpio, 0);
 #else
@@ -214,7 +197,7 @@ static void __exit bottomhalf_exit(void)
         gpio_set_value(leds[i].gpio, 0);
 #endif
 
-    /* unregister */
+/* unregister */
 #ifdef NO_GPIO_REQUEST_ARRAY
     gpio_free(leds[0].gpio);
     gpio_free(buttons[0].gpio);

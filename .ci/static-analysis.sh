@@ -2,7 +2,7 @@
 
 function do_cppcheck()
 {
-    local SOURCES=$(find $(git rev-parse --show-toplevel) | egrep "\.(cpp|cc|c|h)\$")
+    local SOURCES=$(find $(git rev-parse --show-toplevel) | grep -E "\.(cpp|cc|c|h)\$")
 
     local CPPCHECK=$(which cppcheck)
     if [ $? -ne 0 ]; then
@@ -19,13 +19,13 @@ function do_cppcheck()
     # - [*.c] missingIncludeSystem: Focus on the example code, not the kernel headers.
 
     local OPTS="
-            --enable=warning,style,performance,information
+            --enable=warning,performance,information
             --suppress=unusedFunction:hello-1.c
             --suppress=missingIncludeSystem
             --std=c89 "
 
     $CPPCHECK $OPTS --xml ${SOURCES} 2> cppcheck.xml
-    local ERROR_COUNT=$(cat cppcheck.xml | egrep -c "</error>" )
+    local ERROR_COUNT=$(cat cppcheck.xml | grep -E -c "</error>" )
 
     if [ $ERROR_COUNT -gt 0 ]; then
         echo "Cppcheck failed: $ERROR_COUNT error(s)"
@@ -36,13 +36,12 @@ function do_cppcheck()
 
 function do_sparse()
 {
-    wget -q http://www.kernel.org/pub/software/devel/sparse/dist/sparse-latest.tar.gz
+    git clone git://git.kernel.org/pub/scm/devel/sparse/sparse.git --depth=1
     if [ $? -ne 0 ]; then
         echo "Failed to download sparse."
         exit 1
     fi
-    tar -xzf sparse-latest.tar.gz
-    pushd sparse-*/
+    pushd sparse
     make sparse || exit 1
     sudo make INST_PROGRAMS=sparse PREFIX=/usr install || exit 1
     popd
@@ -50,8 +49,8 @@ function do_sparse()
 
     make -C examples C=2 CHECK="$SPARSE" 2> sparse.log
 
-    local WARNING_COUNT=$(cat sparse.log | egrep -c " warning:" )
-    local ERROR_COUNT=$(cat sparse.log | egrep -c " error:" )
+    local WARNING_COUNT=$(cat sparse.log | grep -E -c " warning:" )
+    local ERROR_COUNT=$(cat sparse.log | grep -E -c " error:" )
     local COUNT=`expr $WARNING_COUNT + $ERROR_COUNT`
     if [ $COUNT -gt 0 ]; then
         echo "Sparse failed: $WARNING_COUNT warning(s), $ERROR_COUNT error(s)"
@@ -63,16 +62,16 @@ function do_sparse()
 
 function do_gcc()
 {
-    local GCC=$(which gcc-11)
+    local GCC=$(which gcc)
     if [ $? -ne 0 ]; then
-        echo "[!] gcc-11 is not installed. Failed to run static analysis with GCC." >&2
+        echo "[!] gcc is not installed. Failed to run static analysis with GCC." >&2
         exit 1
     fi
 
     make -C examples CONFIG_STATUS_CHECK_GCC=y STATUS_CHECK_GCC=$GCC 2> gcc.log
 
-    local WARNING_COUNT=$(cat gcc.log | egrep -c " warning:" )
-    local ERROR_COUNT=$(cat gcc.log | egrep -c " error:" )
+    local WARNING_COUNT=$(cat gcc.log | grep -E -c " warning:" )
+    local ERROR_COUNT=$(cat gcc.log | grep -E -c " error:" )
     local COUNT=`expr $WARNING_COUNT + $ERROR_COUNT`
     if [ $COUNT -gt 0 ]; then
         echo "gcc failed: $WARNING_COUNT warning(s), $ERROR_COUNT error(s)"
